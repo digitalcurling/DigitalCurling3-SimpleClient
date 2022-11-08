@@ -14,7 +14,10 @@ namespace {
 dc::Team g_team;  // 自身のチームID
 
 
-/// \brief 試合設定に対して試合前の準備を行う．
+/// \brief サーバーから送られてきた試合設定が引数として渡されるので，試合前の準備を行います．
+///
+/// 引数 \p player_order を編集することでプレイヤーのショット順を変更することができます．各プレイヤーの情報は \p player_factories に格納されています．
+/// 補足：プレイヤーはショットのブレをつかさどります．プレイヤー数は4で，0番目は0, 1投目，1番目は2, 3投目，2番目は4, 5投目，3番目は6, 7投目を担当します．
 ///
 /// この処理中の思考時間消費はありません．試合前に時間のかかる処理を行う場合この中で行うべきです．
 ///
@@ -46,12 +49,12 @@ void OnInit(
 
 
 
-/// \brief 自チームのターンに呼ばれます．行動を選択し，返してください．
+/// \brief 自チームのターンに呼ばれます．返り値として返した行動がサーバーに送信されます．
 ///
 /// \param game_state 現在の試合状況．
 ///     この参照は関数の呼出し後に無効になりますので，関数呼出し後に参照したい場合はコピーを作成してください．
 ///
-/// \return 選択する行動．この行動が自チームの行動としてサーバーに送信される．
+/// \return 選択する行動．この行動が自チームの行動としてサーバーに送信されます．
 dc::Move OnMyTurn(dc::GameState const& game_state)
 {
     // TODO AIを作る際はここを編集してください
@@ -76,6 +79,8 @@ dc::Move OnMyTurn(dc::GameState const& game_state)
 
 /// \brief 相手チームのターンに呼ばれます．AIを作る際にこの関数の中身を記述する必要は無いかもしれません．
 ///
+/// ひとつ前の手番で自分が行った行動の結果を見ることができます．
+///
 /// \param game_state 現在の試合状況．
 ///     この参照は関数の呼出し後に無効になりますので，関数呼出し後に参照したい場合はコピーを作成してください．
 void OnOpponentTurn(dc::GameState const& game_state)
@@ -87,10 +92,12 @@ void OnOpponentTurn(dc::GameState const& game_state)
 
 /// \brief ゲームが正常に終了した際にはこの関数が呼ばれます．
 ///
-/// \param game_state 現在の試合状況．
+/// \param game_state 試合終了後の試合状況．
 ///     この参照は関数の呼出し後に無効になりますので，関数呼出し後に参照したい場合はコピーを作成してください．
 void OnGameOver(dc::GameState const& game_state)
 {
+    // TODO AIを作る際はここを編集してください
+
     if (game_state.game_result->winner == g_team) {
         std::cout << "won the game" << std::endl;
     } else {
@@ -124,8 +131,9 @@ int main(int argc, char const * argv[])
 
         tcp::socket socket(io_context);
         tcp::resolver resolver(io_context);
-        boost::asio::connect(socket, resolver.resolve(argv[1], argv[2]));
+        boost::asio::connect(socket, resolver.resolve(argv[1], argv[2]));  // 引数のホスト，ポートに接続します．
 
+        // ソケットから1行読む関数です．バッファが空の場合，新しい行が来るまでスレッドをブロックします．
         auto read_next_line = [&socket, input_buffer = std::string()] () mutable {
             // read_untilの結果，input_bufferに複数行入ることがあるため，1行ずつ取り出す処理を行っている
             if (input_buffer.empty()) {
@@ -137,6 +145,7 @@ int main(int argc, char const * argv[])
             return line;
         };
 
+        // コマンドが予期したものかチェックする関数です．
         auto check_command = [] (nlohmann::json const& jin, std::string_view expected_cmd) {
             auto const actual_cmd = jin.at("cmd").get<std::string>();
             if (actual_cmd != expected_cmd) {

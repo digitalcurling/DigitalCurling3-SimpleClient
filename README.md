@@ -1,1 +1,3 @@
 # DigitalCurling3-SimpleClient
+
+思考エンジンの開発のテンプレートとなる，シンプルな思考エンジンの開発例です．
